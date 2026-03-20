@@ -1,7 +1,7 @@
 {
-  "name": "jarvis-sdk-core",
+  "name": "jarvis-sdk-ui",
   "version": "1.0.0",
-  "description": "SDK para Jarvis RAG (UI & CLI)",
+  "description": "SDK para Jarvis RAG (UI)",
   "main": "./src/index.jsx",
   "type": "module",
   "dependencies": {
