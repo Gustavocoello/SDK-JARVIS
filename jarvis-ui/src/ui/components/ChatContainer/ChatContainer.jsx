@@ -1,8 +1,8 @@
 // src/features/chat/ChatPage.jsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Outlet } from 'react-router-dom';
 import MarkdownIt from 'markdown-it';
 import { TbMessagePlus } from "react-icons/tb";
+import jarvisLogo from '../../../assets/icons/jarvis00.png';
 
 // Componentes 
 import SearchBar from '../SearchBar/SearchBar';
@@ -27,6 +27,12 @@ const md = new MarkdownIt({ html: false, linkify: true });
 // --- 1. NUEVO COMPONENTE INTERNO (Contiene toda la lógica de Hooks) ---
 const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
   // Mueve TODOS los hooks aquí. Ahora se ejecutarán siempre en orden.
+  const { 
+    client,
+    getToken,
+    isInitializing
+  } = useJarvis();
+
   const {
     activeChatId,
     setActiveChatId,
@@ -42,14 +48,14 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
     updateMessageInCache, 
     lastUserMessageId, 
     isSuccess 
-  } = useChatMessages(activeChatId, { keep: 10 });
+  } = useChatMessages(activeChatId, { keep: 10 , client });
 
   const { 
     handleNewMessage, 
     isJarvisTyping, 
     isStreaming, 
     stopGeneration 
-  } = useChatActions(activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md });
+  } = useChatActions(activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken);
 
   const {
     notification,
@@ -64,7 +70,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
     const initChat = async () => {
       if (!isAuthenticated) return;
       try {
-        const allChats = await getAllChats();
+        const allChats = await getAllChats(client);
         if (!allChats || allChats.length === 0) return;
         const savedChatId = storageAdapter.getItem();
         const chatToLoad = allChats.find(c => c.id === savedChatId) || allChats[0];
@@ -73,8 +79,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
         streamLogger.error("Error al cargar chats iniciales:", e.message); 
       }
     };
-    const token = storageAdapter.getItem('jarvis_token');
-    if (isAuthenticated && token) initChat();
+    if (isAuthenticated && !isInitializing) initChat();
   }, [isAuthenticated, setActiveChatId]);
 
   // (Sigue pegando aquí el resto de useEffects: el 2, 3, 4, 5 y 6 que tenías)
@@ -114,7 +119,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
 
   const createNewChat = async () => {
     try {
-      const newChat = await createChat({ title: "Nuevo Chat" });
+      const newChat = await createChat(client, { title: "Nuevo Chat" });
       setActiveChatId(newChat.id);
       setLocalMessages([]);
       setHasSentMessage(false);
@@ -133,7 +138,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
       )}
       <div className="content-area">
         <div className="jarvis-header">
-          <img src="/icons/jarvis00.png" alt="Jarvis" className="jarvis-logo1" />
+          <img src={jarvisLogo} alt="Jarvis" className="jarvis-logo1" />
           <h1 className="jarvis-title">Hi, I'm Jarvis.</h1>
         </div>
         <h4>How can I help you today?</h4>
@@ -152,7 +157,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
             if (isAuthenticated) {
               try {
                 streamLogger.info("Creando chat en DB para usuario autenticado...");
-                const newChat = await createChat({ title: query.trim().substring(0, 30) });
+                const newChat = await createChat(client, { title: query.trim().substring(0, 30) });
                 currentChatId = newChat.id;
                 chatEvents.emit('chats-updated', { chatId: currentChatId });
               } catch (error) {
@@ -172,7 +177,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
           // El chat existe (se creó con el botón +) pero no tiene nombre real
           else if (isAuthenticated && !hasSentMessage) {
             try {
-              await updateChatTitle(currentChatId, query.substring(0, 30));
+              await updateChatTitle(client, currentChatId, query.substring(0, 30));
               chatEvents.emit('chats-updated', { chatId: currentChatId });
               setHasSentMessage(true); // Para que no vuelva a intentar renombrar
             } catch (err) {
@@ -192,7 +197,6 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
         onScrollToBottom={scrollToBottom}
       />
       {notification && <div className="notification-memory">{notification}</div>}
-      <Outlet />
     </div>
   );
 };
@@ -201,7 +205,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
 const ChatContainer = ({ 
   guest = false, 
   onUnauthorized = () => console.warn("Login required"),
-  renderLogo = null 
+  renderLogo = null,
 }) => {
   const { isAuthenticated, isInitializing } = useJarvis();
 

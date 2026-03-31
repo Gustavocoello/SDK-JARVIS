@@ -5,13 +5,16 @@ export { JarvisProvider } from './context/JarvisProvider';
 export { useJarvis } from './hooks/useJarvis';
 
 // 2. Core (Lógica pura: API, Stream, Eventos)
-export { sendMessage } from './core/stream';
+export { sendMessage, sendAnonymousMessage, extractFileContent } from './core/stream';
 export { chatEvents } from './core/events';
+
 export { 
   fetchChatMessages, 
   getAllChats, 
   createChat, 
-  updateChatTitle 
+  updateChatTitle,
+  deleteChat,
+  getChatMessages, 
 } from './core/chatApi';
 
 // 3. Hooks (Músculos de la UI - ahora todos en src/hooks)

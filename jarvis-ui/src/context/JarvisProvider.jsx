@@ -1,72 +1,67 @@
 // src/sdk/context/JarvisProvider.jsx
 import React, { createContext, useContext, useMemo, useEffect, useState } from 'react';
-import apiClient, { setAuthToken } from '../core/client';
+import { createChatClient } from '../core/client';
 import { streamLogger } from '../utils/logger';
 
 export const JarvisContext = createContext(null);
 
 export const JarvisProvider = ({ children, config = {} }) => {
-  // DEBE empezar en true para que el ChatContainer espere
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [isReasoning, setIsReasoning] = useState(false);
+
+  const client = useMemo(() => createChatClient({
+    baseURL: config.baseURL,
+    getToken: config.getToken,
+    appId: config.appId || 'jarvis-sdk',
+  }), [config.baseURL, config.getToken, config.appId]);
 
   useEffect(() => {
     const init = async () => {
-      const appId = config?.appId || 'jarvis-sdk-unknown';
-      if (config?.getToken) {
-        try {
-          setAuthToken(config.getToken, appId);
-          const token = await config.getToken();
-          if (token) {
-            setIsAuthenticated(true);
-            // Pedimos los datos al backend de user
-            try {
-              const response = await apiClient.get('/api/v1/user/profile'); // Ajusta a tu ruta de perfil
-              if (response.data) {
-                // Sincronizamos el objeto user con lo que viene de la DB
-                setUser(response.data.user || response.data);
-                const userData = response.data.user || response.data;
-                setUser(userData); 
-                streamLogger.info("✅ SDK User State actualizado:", userData);
-              }
-            } catch (syncError) {
-              streamLogger.error("Error sincronizando perfil en Provider:", syncError);
-            }
-          }
-        } catch (e) {
-          streamLogger.error("Error obteniendo token", e);
-        }
-      } else{
-        setAuthToken(null, appId)
+      if (!config.getToken) {
+        setIsInitializing(false);
+        return;
       }
-      // Finalizamos la carga pase lo que pase
-      setIsInitializing(false);
+      try {
+        const token = await config.getToken();
+        console.log('[jarvis-sdk] init con baseURL:', config.baseURL);
+        console.log('[jarvis-sdk] getToken existe:', !!config.getToken);
+        if (token) {
+          setIsAuthenticated(true);
+          try {
+            const response = await client.get('/api/v1/user/profile');
+            const userData = response.data?.user || response.data;
+            setUser(userData);
+            streamLogger.info('✅ SDK User cargado:', userData);
+          } catch (syncError) {
+            streamLogger.error('Error cargando perfil:', syncError);
+          }
+        }
+      } catch (e) {
+        streamLogger.error('Error obteniendo token:', e);
+      } finally {
+        setIsInitializing(false);
+      }
     };
-    
-    init();
-  }, [config?.getToken]);
 
-  // Asegúrate de pasar isAuthenticated en el useMemo
+    init();
+  }, [config.getToken]);
+
   const value = useMemo(() => ({
-    version:"2026.1.0",
-    client: apiClient,
-    getToken: config?.getToken,
-    isAuthenticated, // <--- IMPORTANTE
+    version: '2026.1.0',
+    client,
+    getToken: config.getToken,
+    isAuthenticated,
     isInitializing,
     user,
-    logout: config?.logout || (() => {
-      localStorage.clear();
-      window.location.href = '/';
-    })
-  }), [config?.getToken, isAuthenticated, isInitializing]);
-
-  const theme = config?.theme || 'dark';
+    logout: config.logout || (() => {
+      console.warn('[jarvis-sdk] logout llamado sin handler configurado');
+    }),
+  }), [client, config.getToken, isAuthenticated, isInitializing, user, config.logout]);
 
   return (
     <JarvisContext.Provider value={value}>
-      <div className="jarvis-sdk-container" data-theme={theme}> 
+      <div className="jarvis-sdk-container" data-theme={config.theme || 'dark'}>
         {children}
       </div>
     </JarvisContext.Provider>
@@ -75,6 +70,7 @@ export const JarvisProvider = ({ children, config = {} }) => {
 
 export const useJarvis = () => {
   const context = useContext(JarvisContext);
-  if (!context) throw new Error("useJarvis debe usarse dentro de JarvisProvider");
+  if (!context) throw new Error('useJarvis debe usarse dentro de JarvisProvider');
   return context;
 };
+

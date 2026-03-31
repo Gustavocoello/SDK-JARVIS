@@ -15,11 +15,13 @@ export function useChatMessages(chatId, options = {}) {
     keep = 10,
     maxChats = 5,
     enabled = true,
-    offlineMode = true
+    offlineMode = true,
+    client,
   } = options;
 
   const queryClient = useQueryClient();
   const prevChatRef = useRef(null);
+  const saveTimeoutRef = useRef(null);
 
   const query = useInfiniteQuery({
     queryKey: ['chatMessages', chatId],
@@ -36,7 +38,7 @@ export function useChatMessages(chatId, options = {}) {
       }
 
       log.info(`[API] Solicitando mensajes al backend/Redis para el chat: ${chatId}`);
-      const rawData = await fetchChatMessages(chatId, limit, pageParam);
+      const rawData = await fetchChatMessages(client, chatId, limit, pageParam);
       return parseChatMessagesResponse(rawData, limit);
     },
     getNextPageParam: (lastPage) =>
@@ -59,13 +61,14 @@ export function useChatMessages(chatId, options = {}) {
   // GESTIÓN DE RAM
   // ============================================================
   useEffect(() => {
-    if (chatId && flatMessages.length) {
-      const isStreaming = flatMessages.some(m => m.stable === false);
-      if (isStreaming) {
-        log.debug(`[RAM] Skipping save - mensaje en streaming`);
-        return;
-      }
-
+    if (!chatId || !flatMessages.length) return;
+    const isStreaming = flatMessages.some(m => m.stable === false);
+    if (isStreaming) {
+      log.debug(`[RAM] Skipping save - mensaje en streaming`);
+      return;
+    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
       const lastMsgs = flatMessages.slice(-keep);
       chatMemoryCache.set(chatId, lastMsgs);
       log.info(
@@ -78,7 +81,10 @@ export function useChatMessages(chatId, options = {}) {
         chatMemoryCache.delete(oldestChat);
         log.warn(`[RAM] Eliminando chat antiguo: ${oldestChat}`);
       }
-    }
+    }, 500);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
   }, [chatId, flatMessages, keep, maxChats]);
 
   // Limpiar cache de React Query al cambiar de chat

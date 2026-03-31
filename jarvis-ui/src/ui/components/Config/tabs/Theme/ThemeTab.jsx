@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import './ThemeTab.css';
-import BackgroundTechPattern from './BackgroundTechPattern';
+//import BackgroundTechPattern from './BackgroundTechPattern';
 
 
 const ThemeTab = () => {
@@ -30,8 +30,6 @@ const ThemeTab = () => {
 
   return (
     <div className="theme-container">
-      {theme === 'custom' && <BackgroundTechPattern />}
-
       <h3>Tema</h3>
       <p>Aquí podrás seleccionar el tema de la interfaz.</p>
 
@@ -47,19 +45,6 @@ const ThemeTab = () => {
           <option value="dark">Oscuro</option>
           <option value="light">Claro</option>
         </select>
-      </div>
-
-      <div className="theme-group">
-        <label className="theme-label">Tema personalizado:</label>
-
-        <div className="theme-preview">
-          <div className="preview-box">
-            <p>Vista previa de tu fondo</p>
-          </div>
-          <button className="theme-button-personal" onClick={() => setTheme('custom')}>
-            Aplicar tema personalizado
-          </button>
-        </div>
       </div>
     </div>
   );

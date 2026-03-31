@@ -11,7 +11,7 @@ export const useJarvis = () => {
   }
 
   // 1. Extraemos TODO del contexto (incluyendo los nuevos estados del Provider)
-  const { user, getToken, isAuthenticated, isInitializing } = context;
+  const { user, getToken, isAuthenticated, isInitializing, client } = context;
 
   const connectGoogleCalendar = async () => {
     // Usamos las variables extraídas

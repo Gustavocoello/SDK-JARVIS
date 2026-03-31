@@ -4,7 +4,7 @@ import { chatEvents } from '../core/events';
 import { streamLogger } from '../utils/logger';
 import { sendMessage, sendAnonymousMessage } from '../core/stream';
 
-export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }) => {
+export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken) => {
   const [isJarvisTyping, setIsJarvisTyping] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef(null);
@@ -70,7 +70,7 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
           return;
         }
 
-        res = await sendAnonymousMessage(fullPrompt);
+        res = await sendAnonymousMessage(fullPrompt, client);
         localStorage.setItem('anonMessageCount', String(anonCount + 1));
         
         const reply = res.result || res.error || "Sin respuesta";
@@ -96,7 +96,10 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
             html: md.render(cleanPartial),
             stable: false
           }, idToSend);
-        }, controller.signal);
+        }, controller.signal, 
+          client,
+          getToken
+        );
 
         updateMessageInCache(jarvisTempId, { stable: true }, idToSend);
       }
@@ -110,7 +113,7 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [activeChatId, isAuthenticated, appendMessageToCache, updateMessageInCache, md]);
+  }, [activeChatId, isAuthenticated, appendMessageToCache, updateMessageInCache, md, client, getToken]);
 
   return { handleNewMessage, isJarvisTyping, isStreaming, stopGeneration };
 };

@@ -3,7 +3,6 @@ import dayjs from 'dayjs';
 import { CgMoreAlt } from "react-icons/cg";
 import { TbLayoutSidebar } from "react-icons/tb";
 import { FaChartBar, FaCog } from 'react-icons/fa';
-import { Link, useLocation } from 'react-router-dom';
 
 import { storageAdapter, USER_ID_KEY } from '../../../utils/storageAdapter';
 import { useJarvis } from '../../../hooks/useJarvis';
@@ -17,14 +16,19 @@ import './Sidebar.css';
 
 const log = new Logger('SidebarSDK');
 
-const Sidebar = () => {
-  const location = useLocation();
+const Sidebar = ({ 
+  onNavigate,           // ← fn que el consumidor pasa para navegar
+  currentPath = '',     // ← path actual para marcar activos
+  settingsPath = '/settings',
+  dashboardPath = '/dashboard',
+  homePath = '/',
+}) => {
   const [isOpen, setIsOpen] = useState(false); 
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const dbUserId = storageAdapter.getItem(USER_ID_KEY);
-  const { isAuthenticated } = useJarvis();
+  const { isAuthenticated, isInitializing, client, getToken } = useJarvis();
 
   // --- Lógica de navegación dinámica ---
   // Función para generar la ruta base del usuario (ahora /chat/uuid)
@@ -33,7 +37,7 @@ const Sidebar = () => {
   // Cargar los chats desde localStorage
   const fetchAndSetChats = async () => {
     try {
-      const fetchedChats = await getAllChats();
+      const fetchedChats = await getAllChats(client);
       const chatsConTitulo = fetchedChats.map(chat => ({
         ...chat,
         title: chat.title && chat.title.trim() !== '' ? chat.title : 'Sin título',
@@ -54,31 +58,23 @@ const Sidebar = () => {
     chatEvents.emit('sidebar-toggled', { isOpen });
   }, [isOpen]);
 
-  // Efecto Único de Carga Inicial y Cambio de Auth
-  // Simplifica el useEffect de carga inicial
-  useEffect(() => {
-    const token = storageAdapter.getItem('jarvis_token'); // Usa la key real de tu sync
-    
-    // Si tenemos auth de Clerk Y el token ya está en el storage, DISPARAMOS.
-    if (isAuthenticated && token) {
-      log.info(' [Sistema] Token detectado. Cargando datos...');
+  useEffect(() => {    
+    if (isAuthenticated && !isInitializing) {
+      log.info('[Sistema] Autenticado. Cargando chats...');
       fetchAndSetChats(); 
-    } else {
-      log.warn(' [Sistema] Esperando token en Storage para disparar API...');
     }
-  }, [isAuthenticated]); // Quita isApiReady de aquí si está dando problemas
+  }, [isAuthenticated, isInitializing]);
 
-  // Escuchar eventos de actualización de chats
+  // Listener de chats-updated restaurado con !isInitializing
   useEffect(() => {
     const unsubscribe = chatEvents.on('chats-updated', () => {
-      if (isAuthenticated) { 
-        log.info(' [Sidebar] Chats actualizados, recargando lista...');
+      if (isAuthenticated && !isInitializing) {
+        log.info('[Sidebar] Chats actualizados, recargando lista...');
         fetchAndSetChats();
       }
     });
-
     return () => unsubscribe();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isInitializing]);
 
   // Escuchar cambios externos en el chat activo
   useEffect(() => {
@@ -116,7 +112,7 @@ const Sidebar = () => {
   // Borrar un chat
   const handleDeleteChat = async (chatId) => {
     try {
-      await deleteChat(chatId);
+      await deleteChat(client, chatId);
       const updatedChats = chats.filter(chat => chat.id !== chatId);
       setChats(updatedChats);
 
@@ -156,88 +152,64 @@ const Sidebar = () => {
     setCurrentChatId(chatId);
     chatEvents.emit('chat-loaded', { chatId });
   };
-
+  const isActive = (path) => currentPath === path;
   return (
     <>
-      {/* Botón de toggle flotante - SIEMPRE VISIBLE */}
-      <div 
-        className="sidebar-toggle-floating" 
-        onClick={() => setIsOpen(!isOpen)}
-      >
+      <div className="sidebar-toggle-floating" onClick={() => setIsOpen(!isOpen)}>
         <TbLayoutSidebar size={20} />
       </div>
 
-      {/* Settings flotante - SOLO VISIBLE CUANDO SIDEBAR ESTÁ CERRADO */}
       {!isOpen && (
-        <Link 
-          to={`${getUserChatPath()}/settings`}
-          state={{ returnTo: location.pathname }}
-          className={`sidebar-settings-floating ${location.pathname.endsWith('/settings') ? 'active' : ''}`}
+        <button
+          className={`sidebar-settings-floating ${isActive(`${getUserChatPath()}${settingsPath}`) ? 'active' : ''}`}
+          onClick={() => onNavigate(`${getUserChatPath()}${settingsPath}`)} // ← onNavigate
         >
           <FaCog size={20} />
-        </Link>
+        </button>
       )}
 
-      {/* Sidebar principal */}
       <div className={`sidebar ${isOpen ? 'open' : 'closed'}`}>
-        {/* Logo Jarvis - SOLO VISIBLE CUANDO ESTÁ ABIERTO */}
         {isOpen && (
           <div className="sidebar-upper">
-            <Link 
-              to="/" 
-              className={`sidebar-item jarvis ${location.pathname === '/' ? 'active' : ''}`}
+            <button
+              className={`sidebar-item jarvis ${isActive(homePath) ? 'active' : ''}`}
+              onClick={() => onNavigate(homePath)} // ← onNavigate
             >
               <div className="jarvis-logo">
                 <AnimatedJarvis />
               </div>
-            </Link>
+            </button>
 
-            {/* Dashboard */}
-            <Link 
-              to="/dashboard" 
-              className={`sidebar-item ${location.pathname === '/dashboard' ? 'active' : ''}`}
+            <button
+              className={`sidebar-item ${isActive(dashboardPath) ? 'active' : ''}`}
+              onClick={() => onNavigate(dashboardPath)} // ← onNavigate
             >
               <FaChartBar className="icon" />
               <span className="label">Dashboard</span>
-            </Link>
+            </button>
           </div>
         )}
 
-        {/* Lista de chats - SOLO VISIBLE CUANDO ESTÁ ABIERTO - ESTA PARTE HACE SCROLL */}
         {isOpen && (
           <div className="sidebar-section">
             <div className="chats-scroll">
               <ul className="chats-list">
-                {Object.entries(categorizedChats).map(([groupKey, groupChats]) => (
+                {Object.entries(categorizedChats).map(([groupKey, groupChats]) =>
                   groupChats.length > 0 && (
                     <li key={groupKey}>
                       <span className="chat-category">
-                        {{
-                          today: 'Today',
-                          yesterday: 'Yesterday',
-                          previous7Days: 'Previous 7 days',
-                          previous30Days: 'Previous 30 days',
-                          older: 'Older'
-                        }[groupKey] || groupKey}
+                        {{ today: 'Today', yesterday: 'Yesterday', previous7Days: 'Previous 7 days', previous30Days: 'Previous 30 days', older: 'Older' }[groupKey]}
                       </span>
-
                       {groupChats.map((chat) => (
                         <div key={chat.id} className="chat-item-container">
                           <button
                             className={`sidebar-chat-item ${chat.id === currentChatId ? 'active' : ''}`}
                             onClick={() => handleLoadChat(chat.id)}
                           >
-                            <span className="label">{chat.title || "Sin título"}</span>
+                            <span className="label">{chat.title}</span>
                           </button>
-
                           {chat.id === currentChatId && (
-                            <button
-                              className="more-button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleMenu(chat.id, e);
-                              }}
-                            >
+                            <button className="more-button" onClick={(e) => { e.stopPropagation(); toggleMenu(chat.id, e); }}>
                               <CgMoreAlt size={18} />
                             </button>
                           )}
@@ -253,38 +225,27 @@ const Sidebar = () => {
                       ))}
                     </li>
                   )
-                ))}
-
-                {Object.values(categorizedChats).every(group => group.length === 0) && (
-                  <li>
-                    <span className="no-chats-message">No hay chats guardados</span>
-                  </li>
+                )}
+                {Object.values(categorizedChats).every(g => g.length === 0) && (
+                  <li><span className="no-chats-message">No hay chats guardados</span></li>
                 )}
               </ul>
             </div>
           </div>
         )}
 
-        {/* Settings - SOLO VISIBLE CUANDO EL SIDEBAR ESTÁ ABIERTO - FIJO AL FINAL */}
         {isOpen && (
-          <Link 
-            to={`${getUserChatPath()}/settings`}
-            state={{ returnTo: location.pathname }}
-            className={`sidebar-item sidebar-settings ${location.pathname.endsWith('/settings') ? 'active' : ''}`}
+          <button
+            className={`sidebar-item sidebar-settings ${isActive(`${getUserChatPath()}${settingsPath}`) ? 'active' : ''}`}
+            onClick={() => onNavigate(`${getUserChatPath()}${settingsPath}`)} // ← onNavigate
           >
             <FaCog className="icon" />
             <span className="label">Settings</span>
-          </Link>
+          </button>
         )}
       </div>
 
-      {/* Overlay para cerrar el sidebar al hacer clic fuera */}
-      {isOpen && (
-        <div 
-          className="sidebar-overlay" 
-          onClick={() => setIsOpen(false)}
-        />
-      )}
+      {isOpen && <div className="sidebar-overlay" onClick={() => setIsOpen(false)} />}
     </>
   );
 };

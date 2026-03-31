@@ -32,6 +32,34 @@
   --jarvis-bubble-user: #161b22;
   --jarvis-bubble-ai: #21262d;
 }
+/* ============================================================
+   COMPONENTES ESPECÍFICOS (Tus iconos)
+   ============================================================ */
+
+/* El logo y el icono que querías que fuera blanco en modo oscuro */
+.jarvis-logo1, .jarvis-icon {
+  transition: all 0.3s ease;
+  padding: 4px;
+}
+
+[data-theme='dark'] .jarvis-logo1, 
+[data-theme='dark'] .jarvis-icon,
+[data-theme='custom'] .jarvis-logo1,
+[data-theme='custom'] .jarvis-icon {
+  background-color: white; /* Lo que pedías: fondo blanco en temas oscuros */
+}
+
+/* Burbujas usando las variables */
+.message-bubble {
+  background-color: var(--jarvis-bubble-ai);
+  color: var(--jarvis-text);
+  border: 1px solid var(--jarvis-border);
+}
+
+.message.user .message-bubble {
+  background-color: var(--jarvis-bubble-user);
+  border: none;
+}
 
 /* ============================================================
    SDK LAYOUT (Para tu ruta /prueba-chat)

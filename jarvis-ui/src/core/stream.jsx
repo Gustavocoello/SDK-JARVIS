@@ -1,32 +1,30 @@
 // src/sdk/core/stream.jsx
 import { apiLogger } from '../utils/logger';
-import apiClient from './client'; // Tu instancia de api.jsx
 
-/**
- * Helper para manejar el streaming de forma agnóstica.
- * No depende de variables globales.
- */
 export const sendMessage = async (
-  { chatId, text, hidden_context = '', tool = '' }, 
-  onPartialResponse = null, 
+  { chatId, text, hidden_context = '', tool = '' },
+  onPartialResponse = null,
   signal,
-  client = apiClient 
+  client,
+  getToken
 ) => {
+  if (!client) throw new Error('[jarvis-sdk] sendMessage requiere un client');
+
   try {
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-    let token = localStorage.getItem('jarvis_token');
-    if (!token) {
-      token = client.defaults.headers.common['Authorization']?.split(' ')[1];
-    }
+
+    const token = typeof getToken === 'function' ? await getToken() : null;
+    const baseURL = client.defaults.baseURL;
+    const appId = client.defaults.headers.common?.['X-Project-Origin'] || 'jarvis-sdk';
+
     const headers = {
       'Content-Type': 'application/json',
+      'X-Project-Origin': appId,
     };
 
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const response = await fetch(`${client.defaults.baseURL}/api/chat/${chatId}/message`, {
+    const response = await fetch(`${baseURL}/api/chat/${chatId}/message`, {
       method: 'POST',
       headers,
       credentials: 'include',
@@ -35,11 +33,11 @@ export const sendMessage = async (
     });
 
     if (response.status === 401) {
-      throw new Error("No autorizado. Por favor, inicia sesión de nuevo.");
+      throw new Error('[jarvis-sdk] No autorizado. Verifica tu getToken.');
     }
 
     if (!response.ok || !response.body) {
-      throw new Error("No se pudo conectar al servidor");
+      throw new Error('[jarvis-sdk] No se pudo conectar al servidor');
     }
 
     const reader = response.body.getReader();
@@ -49,10 +47,8 @@ export const sendMessage = async (
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-
       const chunk = decoder.decode(value, { stream: true });
       fullText += chunk;
-
       if (onPartialResponse) onPartialResponse(fullText);
     }
 
@@ -60,44 +56,46 @@ export const sendMessage = async (
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      apiLogger.info('Streaming abortado por el usuario');
+      apiLogger.info('[jarvis-sdk] Streaming abortado por el usuario');
       throw error;
     }
-    throw new Error(`Error en streaming: ${error.message}`);
+    throw new Error(`[jarvis-sdk] Error en streaming: ${error.message}`);
   }
 };
 
-// Mensaje Anónimo
-export const sendAnonymousMessage = async (promptText, client = apiClient) => {
+export const sendAnonymousMessage = async (promptText, client) => {
+  if (!client) throw new Error('[jarvis-sdk] sendAnonymousMessage requiere un client');
   try {
-    // Usamos el cliente inyectado en lugar de 'axios' global
-    const response = await client.post(`/api/search/prompt`, {
-      prompt: promptText
-    });
+    const response = await client.post('/api/search/prompt', { prompt: promptText });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error en mensaje anónimo');
   }
 };
 
-// Extracción de archivos
-export const extractFileContent = async (file, client = apiClient) => {
+export const extractFileContent = async (file, client, getToken) => {
+  if (!client) throw new Error('[jarvis-sdk] extractFileContent requiere un client');
+
+  const token = typeof getToken === 'function' ? await getToken() : null;
+  const baseURL = client.defaults.baseURL;
+  const appId = client.defaults.headers.common?.['X-Project-Origin'] || 'jarvis-sdk';
+
   const formData = new FormData();
   formData.append('file', file);
 
-  // El cliente ya tiene el token gracias a los interceptores
-  const response = await fetch(`${client.defaults.baseURL}/api/chat/extract_file`, {
+  const headers = { 'X-Project-Origin': appId };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Sin Content-Type — el browser pone el boundary del FormData
+
+  const response = await fetch(`${baseURL}/api/chat/extract_file`, {
     method: 'POST',
-    headers: {
-        // No enviamos Content-Type para que el navegador ponga el boundary del FormData
-        'Authorization': client.defaults.headers.Authorization 
-    },
+    headers,
     body: formData,
   });
 
   if (!response.ok) {
     const data = await response.json();
-    throw new Error(data.error || 'Error al extraer archivo');
+    throw new Error(data.error || '[jarvis-sdk] Error al extraer archivo');
   }
 
   return await response.json();

@@ -46,24 +46,4 @@
 .theme-button-personal:hover {
   background-color: #505050;
 }
-.theme-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 10px;
-}
 
-.preview-box {
-  width: 100%;
-  height: 120px;
-  border-radius: 8px;
-  background-image: url('../../../../../assets/theme/tema001.png'); /* cambia a tu ruta */
-  background-size: cover;
-  background-position: center;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: rgb(10, 0, 0);
-  font-weight: bold;
-  box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
-}

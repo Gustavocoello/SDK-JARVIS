@@ -1,6 +1,5 @@
 // src/sdk/components/config/tabs/McpTab/McpTab.jsx
-import React, { useState, useEffect } from 'react';
-import { useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef } from 'react';
 
 // Componentes internos del SDK
 import McpTestMode from './utils/McpTestMode';
@@ -8,13 +7,12 @@ import { MCPSearchPanel } from '../../../SearchBar/utils/MCPSearchPanel';
 
 // Hooks y Core del SDK
 import { useJarvis } from '../../../../../hooks/useJarvis';
-import apiClient from '../../../../../core/client'; // Tu cliente axios del SDK
 import Logger from '../../../../../utils/logger';
 
 // Iconos
 import { FcGoogle } from 'react-icons/fc';
 import { AiOutlineCloudServer } from 'react-icons/ai';
-import { SiNotion, SiMysql, SiMicrosoftaccess } from 'react-icons/si';
+import { SiNotion, SiMysql } from 'react-icons/si';
 import { IoPrismOutline } from 'react-icons/io5';
 import { FaGithub, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 
@@ -24,40 +22,59 @@ const log = new Logger('McpTab');
 
 const McpTab = () => {
   const [mainView, setMainView] = useState('');
-  const location = useLocation();
-  
   // Obtenemos la lógica desde el SDK
-  const { connectGoogleCalendar, serviceConnections, setServiceConnections } = useJarvis();
+  const { client, connectGoogleCalendar, serviceConnections, setServiceConnections } = useJarvis();
   const [connectingService, setConnectingService] = useState(null);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+
+  // ← Caché local para no perder el estado entre renders
+  const cachedConnections = useRef(serviceConnections || {});
+
+  // Cuando llega estado nuevo del contexto, actualizamos el caché
+  useEffect(() => {
+    if (serviceConnections) {
+      cachedConnections.current = serviceConnections;
+    }
+  }, [serviceConnections]);
+
+  // El estado que se muestra en UI usa el caché mientras carga
+  const displayConnections = isLoadingStatus 
+    ? cachedConnections.current  // ← muestra lo que había mientras carga
+    : (serviceConnections || cachedConnections.current);
 
   const integrationApi = {
     getStatus: async () => {
-      const response = await apiClient.get('/api/v1/integrations/status'); 
+      const response = await client.get('/api/v1/integrations/status'); 
       return response.data;
     },
     disconnect: async (provider) => {
-      const response = await apiClient.post(`/api/v1/integrations/disconnect/${provider}`);
+      const response = await client.post(`/api/v1/integrations/disconnect/${provider}`);
       return response.data;
     }
   };
 
   const fetchIntegrationStatus = async () => {
+    setIsLoadingStatus(true)
     try {
-      const status = await integrationApi.getStatus();
-      // Actualizamos el estado global del SDK
+      const response = await client.get('/api/v1/integrations/status');
+      const status = response.data;
+      cachedConnections.current = status; // ← actualizar caché
       if (setServiceConnections) setServiceConnections(status);
     } catch (error) {
-      log.error("Error fetching integration status:", error);
+      log.error('Error fetching integration status:', error);
+      // Si falla, dejamos el caché como estaba — no borramos el estado
+    } finally {
+      setIsLoadingStatus(false);
     }
   };
 
   useEffect(() => {
     fetchIntegrationStatus();
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     if (params.get("connection_success") || params.get("error")) {
-      window.history.replaceState({}, "", location.pathname);
+      window.history.replaceState({}, "", window.location.pathname);
     }
-  }, [location.search]);
+  }, []);
 
   const handleServiceConnect = async (serviceName) => {
     setConnectingService(serviceName);
@@ -142,7 +159,7 @@ const McpTab = () => {
             icon={<FcGoogle size={32} />}
             name="Google Calendar"
             description="Manage events"
-            connected={serviceConnections?.google_calendar}
+            connected={displayConnections?.google_calendar}
             onConnect={handleServiceConnect}
             onDisconnect={handleServiceDisconnect}
             isConnecting={connectingService === 'google_calendar'}
@@ -152,12 +169,37 @@ const McpTab = () => {
             service="github"
             icon={<FaGithub size={32} color="#fff" />}
             name="GitHub"
-            description="Manage repos"
-            connected={serviceConnections?.github}
+            description="Manage repositories and PRs"
+            connected={displayConnections?.github}
             onConnect={handleServiceConnect}
             onDisconnect={handleServiceDisconnect}
             isConnecting={connectingService === 'github'}
           />
+            {/* Notion */}
+            <ServiceConnectionCard
+              service="notion"
+              icon={<SiNotion size={32} color="#fff" />}
+              name="Notion"
+              description="Interact with pages and databases"
+              connected={displayConnections?.notion}
+              onConnect={handleServiceConnect}
+              onDisconnect={handleServiceDisconnect}
+              isConnecting={connectingService === 'notion'}
+              badge="Developing"
+            />
+
+            {/* Nueva tarjeta: MySQL */}
+            <ServiceConnectionCard
+              service="mysql"
+              icon={<SiMysql size={32} color="#4479A1" />}
+              name="MySQL"
+              description="Execute queries against your database"
+              connected={displayConnections?.mysql}
+              onConnect={handleServiceConnect}
+              onDisconnect={handleServiceDisconnect}
+              isConnecting={connectingService === 'mysql'}
+              badge="Developing"
+            />
         </div>
       </div>
 

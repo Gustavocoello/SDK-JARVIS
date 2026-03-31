@@ -1,14 +1,12 @@
-// src/ui/components/Sidebar/utils/AnimatedJarvis.jsx sdk
 import React, { useEffect, useRef } from "react";
-import * as anime from 'animejs';
+import { animate } from "animejs"; // ✅ v4 named export
 
 const JarvisSVG = () => (
   <svg
     viewBox="0 0 100 245"
-    width ="130px" // Anco de la caja de imagen de svg jarvis
-    height="60px"  // Alto de la caja de imagen de svg jarvis
+    width="130px"
+    height="60px"
     xmlns="http://www.w3.org/2000/svg"
-
   >
     <path
       id="jarvis-path"
@@ -16,67 +14,39 @@ const JarvisSVG = () => (
       fill="none"
       stroke="white"
       strokeWidth="1.5"
-      transform="scale(5) translate(-86, -85)" // Aumenta el tamaño del SVG y posiciona el trazo
+      transform="scale(5) translate(-86, -85)"
     />
   </svg>
 );
 
-const JarvisIcon = () => (
-  <svg 
-    viewBox="0 0 50 50" 
-    width="40" 
-    height="40" 
-    xmlns="http://www.w3.org/2000/svg">
-    <circle 
-      cx="25" 
-      cy="25" 
-      r="20" 
-      fill="#ffffff" />
-    <text 
-      x="25" 
-      y="32" 
-      fontSize="24"
-      fontFamily="Arial, sans-serif"
-      fontWeight="bold" 
-      textAnchor="middle" 
-      fill="#000000"
-      >
-        J
-    </text>
-  </svg>
-);
-
-
 const AnimatedJarvis = () => {
   const isAnimated = useRef(false);
+
   useEffect(() => {
     const path = document.querySelector("#jarvis-path");
-    if (!path) return;
+    if (!path || isAnimated.current) return;
 
     const length = path.getTotalLength();
-
-    // Configura las propiedades iniciales
     path.style.strokeDasharray = length;
     path.style.strokeDashoffset = length;
 
-   const animate = anime.default || anime;
+    const animation = animate(path, { // ← guardar referencia
+    strokeDashoffset: [length, 0],
+    easing: "easeInOutQuad",
+    duration: 8000,
+    loop: true,
+  });
 
-    // Anima el trazo
-    if (typeof animate === 'function') {
-      animate({
-        targets: path,
-        strokeDashoffset: [length, 0],
-        easing: "easeInOutQuad",
-        duration: 8000,
-        loop: true,
-      });
-      isAnimated.current = true
-      }
-    }, []);
+  isAnimated.current = true;
+
+  return () => {
+    animation.pause(); // ← cancelar al desmontar
+    isAnimated.current = false;
+  };
+}, []);
 
   return (
     <>
-      {/* Logo completo */}
       <div className="logo-full">
         <JarvisSVG />
       </div>
