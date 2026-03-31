@@ -19,7 +19,8 @@
   ],
   "scripts": {
     "build": "vite build",
-    "dev": "vite build --watch"
+    "dev": "vite build --watch",
+    "prepare": "pnpm build"
   },
   "dependencies": {
     "animejs": "^4.3.6",
