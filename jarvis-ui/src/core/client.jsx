@@ -1,7 +1,7 @@
 // src/sdk/core/client.jsx
 import axios from 'axios';
 
-export const createChatClient = ({ baseURL, getToken, appId = 'jarvis-sdk' }) => {
+export const createChatClient = ({ baseURL, getToken, appId }) => {
   const instance = axios.create({
     baseURL,
     headers: { 'Content-Type': 'application/json' },
@@ -9,7 +9,8 @@ export const createChatClient = ({ baseURL, getToken, appId = 'jarvis-sdk' }) =>
   });
 
   instance.interceptors.request.use(async (config) => {
-    config.headers['X-Project-Origin'] = appId;
+    const currentAppId = appId;
+    config.headers['X-Project-Origin'] = currentAppId;
 
     if (typeof getToken === 'function') {
       try {

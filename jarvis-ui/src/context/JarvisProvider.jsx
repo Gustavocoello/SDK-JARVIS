@@ -9,26 +9,31 @@ export const JarvisProvider = ({ children, config = {} }) => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-
-  const client = useMemo(() => createChatClient({
-    baseURL: config.baseURL,
-    getToken: config.getToken,
-    appId: config.appId || 'jarvis-sdk',
-  }), [config.baseURL, config.getToken, config.appId]);
+  const { baseURL, getToken, appId, theme, logout } = config;
+  
+  const client = useMemo(() => {
+    streamLogger.info('[jarvis-sdk] - JarvisProvider: Creando cliente con AppID:', appId);
+    return createChatClient({
+      baseURL,
+      getToken,
+      appId: appId, 
+    });
+  }, [baseURL, getToken, appId]);
 
   useEffect(() => {
     const init = async () => {
-      if (!config.getToken) {
+      if (!getToken) {
         setIsInitializing(false);
         return;
       }
       try {
-        const token = await config.getToken();
-        console.log('[jarvis-sdk] init con baseURL:', config.baseURL);
-        console.log('[jarvis-sdk] getToken existe:', !!config.getToken);
+        const token = await getToken();
+        streamLogger.info('[jarvis-sdk] - JarvisProvider: init con baseURL:', baseURL);
+        streamLogger.info('[jarvis-sdk] - JarvisProvider: getToken existe:', !!getToken);
         if (token) {
           setIsAuthenticated(true);
           try {
+            streamLogger.info('[jarvis-sdk] Pidiendo perfil con AppID:', appId);
             const response = await client.get('/api/v1/user/profile');
             const userData = response.data?.user || response.data;
             setUser(userData);
@@ -45,11 +50,12 @@ export const JarvisProvider = ({ children, config = {} }) => {
     };
 
     init();
-  }, [config.getToken]);
+  }, [client, getToken, appId]);
 
   const value = useMemo(() => ({
     version: '2026.1.0',
     client,
+    appId,
     getToken: config.getToken,
     isAuthenticated,
     isInitializing,
@@ -57,7 +63,7 @@ export const JarvisProvider = ({ children, config = {} }) => {
     logout: config.logout || (() => {
       console.warn('[jarvis-sdk] logout llamado sin handler configurado');
     }),
-  }), [client, config.getToken, isAuthenticated, isInitializing, user, config.logout]);
+  }), [client, appId, config.getToken, isAuthenticated, isInitializing, user, config.logout]);
 
   return (
     <JarvisContext.Provider value={value}>

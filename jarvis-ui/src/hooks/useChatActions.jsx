@@ -4,7 +4,7 @@ import { chatEvents } from '../core/events';
 import { streamLogger } from '../utils/logger';
 import { sendMessage, sendAnonymousMessage } from '../core/stream';
 
-export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken) => {
+export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken, appId) => {
   const [isJarvisTyping, setIsJarvisTyping] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const abortControllerRef = useRef(null);
@@ -32,6 +32,16 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
     const userContent = message.content ?? message.text ?? '';
     const jarvisTempId = `jarvis-${Date.now()}`;
     const timestamp = Date.now();
+    const userMessages = []
+    if (image) {
+      userMessages.push({
+        id: `user-img-${timestamp}`,
+        role: 'user',
+        type: 'image',
+        imageUrl: image, // El base64 para verla al instante
+        content: userContent // Texto asociado
+      });
+    }
 
     // Lógica de contexto
     const combinedContext = Array.isArray(contextFromFile)
@@ -45,13 +55,21 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
     // Preparar UI (HTML)
     const escapeHtml = (text) => text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     const htmlParts = [];
-    if (image) htmlParts.push(`<img src="${image}" class="chat-image-upload" />`);
-    if (userContent) htmlParts.push(`<p>${escapeHtml(userContent)}</p>`);
+    if (userContent || !image) {
+      const escapeHtml = (text) => text.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      userMessages.push({
+        id: `user-txt-${timestamp}`,
+        role: 'user',
+        type: 'html',
+        content: userContent,
+        html: `<p>${escapeHtml(userContent)}</p>`
+      });
+    }
 
-    // Inyectar en caché (Optimizado para tus 3.3GB de RAM)
+    // Inyectar en caché 
     appendMessageToCache(
       [
-      { id: `user-${timestamp}`, role: 'user', type: 'html', content: userContent, html: htmlParts.join('<br><br>') },
+      ...userMessages,
       { id: jarvisTempId, role: 'assistant', content: '', html: '', stable: false }
       ],
       idToSend
@@ -98,7 +116,8 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
           }, idToSend);
         }, controller.signal, 
           client,
-          getToken
+          getToken,
+          appId
         );
 
         updateMessageInCache(jarvisTempId, { stable: true }, idToSend);
@@ -113,7 +132,7 @@ export const useChatActions = (activeChatId, isAuthenticated, { appendMessageToC
       setIsStreaming(false);
       abortControllerRef.current = null;
     }
-  }, [activeChatId, isAuthenticated, appendMessageToCache, updateMessageInCache, md, client, getToken]);
+  }, [activeChatId, isAuthenticated, appendMessageToCache, updateMessageInCache, md, client, getToken, appId]);
 
   return { handleNewMessage, isJarvisTyping, isStreaming, stopGeneration };
 };

@@ -1,12 +1,14 @@
 // src/sdk/core/stream.jsx
 import { apiLogger } from '../utils/logger';
 
+// Función para enviar un mensaje y manejar la respuesta en streaming SIN AGENTES
 export const sendMessage = async (
   { chatId, text, hidden_context = '', tool = '' },
   onPartialResponse = null,
   signal,
   client,
-  getToken
+  getToken,
+  appId
 ) => {
   if (!client) throw new Error('[jarvis-sdk] sendMessage requiere un client');
 
@@ -15,7 +17,6 @@ export const sendMessage = async (
 
     const token = typeof getToken === 'function' ? await getToken() : null;
     const baseURL = client.defaults.baseURL;
-    const appId = client.defaults.headers.common?.['X-Project-Origin'] || 'jarvis-sdk';
 
     const headers = {
       'Content-Type': 'application/json',
@@ -24,7 +25,70 @@ export const sendMessage = async (
 
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const response = await fetch(`${baseURL}/api/chat/${chatId}/message`, {
+    const response = await fetch(`${baseURL}/api/v1/chat/${chatId}/message`, {
+      method: 'POST',
+      headers,
+      credentials: 'include',
+      body: JSON.stringify({ text, hidden_context, tool }),
+      signal,
+    });
+
+    if (response.status === 401) {
+      throw new Error('[jarvis-sdk] No autorizado. Verifica tu getToken.');
+    }
+
+    if (!response.ok || !response.body) {
+      throw new Error('[jarvis-sdk] No se pudo conectar al servidor');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      fullText += chunk;
+      if (onPartialResponse) onPartialResponse(fullText);
+    }
+
+    return fullText;
+
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      apiLogger.info('[jarvis-sdk] Streaming abortado por el usuario');
+      throw error;
+    }
+    throw new Error(`[jarvis-sdk] Error en streaming: ${error.message}`);
+  }
+};
+
+// Función para enviar un mensaje CON AGENTES
+export const sendMessageWithAgents = async (
+  { chatId, text, hidden_context = '', tool = '' },
+  onPartialResponse = null,
+  signal,
+  client,
+  getToken,
+  appId
+) => {
+  if (!client) throw new Error('[jarvis-sdk] sendMessageWithAgents requiere un client');
+
+  try {
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
+    const token = typeof getToken === 'function' ? await getToken() : null;
+    const baseURL = client.defaults.baseURL;
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-Project-Origin': appId,
+    };
+
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const response = await fetch(`${baseURL}/api/v2/chat/${chatId}/message`, {
       method: 'POST',
       headers,
       credentials: 'include',
@@ -66,19 +130,23 @@ export const sendMessage = async (
 export const sendAnonymousMessage = async (promptText, client) => {
   if (!client) throw new Error('[jarvis-sdk] sendAnonymousMessage requiere un client');
   try {
-    const response = await client.post('/api/search/prompt', { prompt: promptText });
+    const response = await client.post('/api/v1/search/prompt', { prompt: promptText });
     return response.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error en mensaje anónimo');
   }
 };
 
-export const extractFileContent = async (file, client, getToken) => {
+export const extractFileContent = async (
+  file, 
+  client, 
+  getToken, 
+  appId
+  ) => {
   if (!client) throw new Error('[jarvis-sdk] extractFileContent requiere un client');
 
   const token = typeof getToken === 'function' ? await getToken() : null;
   const baseURL = client.defaults.baseURL;
-  const appId = client.defaults.headers.common?.['X-Project-Origin'] || 'jarvis-sdk';
 
   const formData = new FormData();
   formData.append('file', file);

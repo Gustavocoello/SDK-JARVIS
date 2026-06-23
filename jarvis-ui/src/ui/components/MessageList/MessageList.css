@@ -88,7 +88,7 @@
   max-width: 85%;       /* Más ancha que antes */
   padding: 16px 20px;   /* Más padding */
   border-radius: 18px;  /* Bordes más redondeados */
-  font-size: 16px;
+  font-size: 14px;
   word-break: break-word;
   line-height: 1.4; 
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
@@ -382,7 +382,7 @@ body {
   .message-bubble {
     max-width: 90%;
     padding: 12px 16px;
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.5;
     border-radius: 16px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
@@ -521,4 +521,189 @@ body {
     font-size: 13px;
     padding: 10px 20px;
   }
+}
+
+/* Contenedor principal del mensaje del usuario */
+.user-message-container {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end; /* Alinea tu burbuja a la derecha */
+  margin: 10px 0;
+  position: relative;
+}
+
+/* La burbuja debe ser relativa para que la barra flote sobre ella */
+.user-bubble-relative {
+  position: relative;
+  max-width: 80%;
+}
+
+/* LA BARRA FLOTANTE (Action Bar horizontal) */
+.user-message-floating-bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%); /* El truco: -50% en Y la sube justo a la mitad de la línea */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #252525; /* Color sólido para que destaque sobre la línea */
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 4px 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 20;
+  
+  /* Invisibilidad inicial */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Mostrar la barra al hacer hover sobre el mensaje */
+.user-message-container:hover .user-message-floating-bar {
+  opacity: 1;
+  visibility: visible;
+  top: 0; /* Mantiene la posición */
+}
+
+/* Ítems individuales de la barra */
+.action-item {
+  background: transparent !important;
+  border: none !important;
+  color: #a0a0a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.action-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Estilo para el Pin activado */
+.action-item.pinned {
+  color: #fbbf24; /* Amarillo oro */
+}
+
+/* Control de colapso del texto */
+.collapsed .user-content-body {
+  max-height: 15rem; /* ~10 líneas */
+  overflow: hidden;
+  /* Efecto de desvanecimiento al final */
+  mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.expanded .user-content-body {
+  max-height: none;
+}
+
+/* Contenedor para agrupar burbuja + acciones externas */
+.assistant-message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Alineado a la izquierda como el asistente */
+  position: relative;
+  width: 100%;
+}
+
+/* LA BARRA EXTERNA (Debajo de la burbuja) */
+.assistant-external-actions {
+  margin-top: 4px; /* Espacio entre burbuja y botones */
+  padding-left: 8px; /* Ligero margen desde el borde */
+  opacity: 0; /* Invisible por defecto */
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s;
+}
+
+/* Aparece cuando pasas el mouse por el wrapper del asistente */
+.assistant-message-wrapper:hover .assistant-external-actions {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Ajustes de la barra de herramientas para que sea sin background */
+.assistant-actions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px; /* Más pegados para un look más limpio */
+  background: transparent !important; /* SIN BACKGROUND */
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Botones de la barra del asistente */
+.toolbar-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #777; /* Color discreto */
+  padding: 5px;
+  cursor: pointer;
+  display: flex;
+  border-radius: 5px;
+  transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+.toolbar-menu-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+/* El contenedor del menú (los 3 puntos) */
+.toolbar-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 5px;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* NUEVO NOMBRE: Para evitar colisión con Searchbar.css */
+.assistant-menu-item {
+  background: transparent !important;
+  border: none !important;
+  color: #ccc !important;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  transition: background 0.2s, color 0.2s;
+}
+
+.assistant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+/* Iconos dentro del menú */
+.assistant-menu-item svg {
+  flex-shrink: 0;
+  color: #888;
+}
+
+.assistant-menu-item:hover svg {
+  color: #fff;
 }

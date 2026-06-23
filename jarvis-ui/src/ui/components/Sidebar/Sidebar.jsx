@@ -27,17 +27,30 @@ const Sidebar = ({
   const [chats, setChats] = useState([]);
   const [currentChatId, setCurrentChatId] = useState(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
-  const dbUserId = storageAdapter.getItem(USER_ID_KEY);
-  const { isAuthenticated, isInitializing, client, getToken } = useJarvis();
+  const { isAuthenticated, isInitializing, client } = useJarvis();
 
   // --- Lógica de navegación dinámica ---
   // Función para generar la ruta base del usuario (ahora /chat/uuid)
-  const getUserChatPath = () => dbUserId ? `/chat/${dbUserId}` : '/chat';
+  const navigateToPath = (subPath) => {
+    // Obtenemos el ID justo antes de navegar
+    const currentId = storageAdapter.getItem(USER_ID_KEY); 
+    const basePath = currentId ? `/chat/${currentId}` : '/chat';
+    
+    // Si subPath ya empieza con '/', evitamos duplicar barras
+    const cleanSubPath = subPath.startsWith('/') ? subPath : `/${subPath}`;
+    const finalPath = `${basePath}${cleanSubPath}`;
+    
+    log.info(`[Sidebar] Navegando a: ${finalPath}`);
+    onNavigate(finalPath);
+  };
   
   // Cargar los chats desde localStorage
   const fetchAndSetChats = async () => {
+    if ( !client || !isAuthenticated) return;
+
     try {
       const fetchedChats = await getAllChats(client);
+      log.info(" [Sidebar] CHATS RECIBIDOS DEL BACKEND:", fetchedChats);
       const chatsConTitulo = fetchedChats.map(chat => ({
         ...chat,
         title: chat.title && chat.title.trim() !== '' ? chat.title : 'Sin título',
@@ -59,11 +72,10 @@ const Sidebar = ({
   }, [isOpen]);
 
   useEffect(() => {    
-    if (isAuthenticated && !isInitializing) {
-      log.info('[Sistema] Autenticado. Cargando chats...');
+    if (isAuthenticated && !isInitializing && client) {
       fetchAndSetChats(); 
     }
-  }, [isAuthenticated, isInitializing]);
+  }, [isAuthenticated, isInitializing, client]);
 
   // Listener de chats-updated restaurado con !isInitializing
   useEffect(() => {
@@ -161,8 +173,8 @@ const Sidebar = ({
 
       {!isOpen && (
         <button
-          className={`sidebar-settings-floating ${isActive(`${getUserChatPath()}${settingsPath}`) ? 'active' : ''}`}
-          onClick={() => onNavigate(`${getUserChatPath()}${settingsPath}`)} // ← onNavigate
+          className={`sidebar-settings-floating ${isActive(settingsPath) ? 'active' : ''}`}
+          onClick={() => navigateToPath(settingsPath)} // ← onNavigate
         >
           <FaCog size={20} />
         </button>
@@ -236,8 +248,14 @@ const Sidebar = ({
 
         {isOpen && (
           <button
-            className={`sidebar-item sidebar-settings ${isActive(`${getUserChatPath()}${settingsPath}`) ? 'active' : ''}`}
-            onClick={() => onNavigate(`${getUserChatPath()}${settingsPath}`)} // ← onNavigate
+            className={`sidebar-item sidebar-settings ${isActive(settingsPath) ? 'active' : ''}`}
+            onClick={() => {
+              if (typeof onNavigate === 'function') {
+                onNavigate(`${getUserChatPath()}${settingsPath}`);
+              } else {
+                console.error("onNavigate no está definida en el Sidebar");
+              }
+            }} // ← onNavigate
           >
             <FaCog className="icon" />
             <span className="label">Settings</span>

@@ -4,7 +4,7 @@
 // 1. Obtener todos los chats
 export const getAllChats = async (client) => {
   try {
-    const res = await client.get('/api/chat');
+    const res = await client.get('/api/v1/chat');
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al obtener los chats');
@@ -14,7 +14,7 @@ export const getAllChats = async (client) => {
 // 2. Obtener mensajes de un chat específico
 export const getChatMessages = async (client, chatId) => {
   try {
-    const res = await client.get(`/api/chat/${chatId}/messages`);
+    const res = await client.get(`/api/v1/chat/${chatId}/messages`);
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al obtener los mensajes');
@@ -24,7 +24,7 @@ export const getChatMessages = async (client, chatId) => {
 // 3. Crear un nuevo chat
 export const createChat = async (client, newChat) => {
   try {
-    const res = await client.post('/api/chat', newChat);
+    const res = await client.post('/api/v1/chat', newChat);
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al crear el chat');
@@ -34,7 +34,7 @@ export const createChat = async (client, newChat) => {
 // 4. Enviar mensaje a un chat
 export const sendMessage = async (client, chatId, text) => {
   try {
-    const res = await client.post(`/api/chat/${chatId}/message`, { text });
+    const res = await client.post(`/api/v1/chat/${chatId}/message`, { text });
     return res.data; // { reply: "respuesta de IA" }
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al enviar el mensaje');
@@ -44,7 +44,7 @@ export const sendMessage = async (client, chatId, text) => {
 // 5. Borrar un chat (opcional)
 export const deleteChat = async (client, chatId) => {
   try {
-    await client.delete(`/api/chat/${chatId}`);
+    await client.delete(`/api/v1/chat/${chatId}`);
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al borrar el chat');
   }
@@ -53,7 +53,7 @@ export const deleteChat = async (client, chatId) => {
 // 6. Editar título del chat (opcional)
 export const updateChatTitle = async (client, chatId, newTitle) => {
   try {
-    const res = await client.put(`/api/chat/${chatId}/title`, { title: newTitle });
+    const res = await client.put(`/api/v1/chat/${chatId}/title`, { title: newTitle });
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al actualizar el título del chat');
@@ -63,7 +63,7 @@ export const updateChatTitle = async (client, chatId, newTitle) => {
 // 7. Mensajes recientes para paginación (nuevo endpoint optimizado para paginación)
 export const fetchChatMessages = async (client, chatId) => {
   try {
-    const res = await client.get(`/api/chat/${chatId}/messages/recent`);
+    const res = await client.get(`/api/v1/chat/${chatId}/messages/recent`);
     return res.data;
   } catch (error) {
     throw new Error(error.response?.data?.error || 'Error al obtener los mensajes recientes');

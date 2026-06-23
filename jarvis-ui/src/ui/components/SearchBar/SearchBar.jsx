@@ -13,7 +13,7 @@ import { apiLogger } from '../../../utils/logger';
 //import minijarvis from '../../../assets/icons/jarvis.png'
 import './SearchBar.css';
 
-const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, onContextExtracted, pendingContext, onRemoveContext }) => {
+const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, onContextExtracted, pendingContext, onRemoveContext, client, getToken, appId }) => {
   const [query, setQuery] = useState('');
   const textareaRef = useRef(null);
   const dropdownRef = useRef(null);
@@ -41,19 +41,19 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
 
   // Para escuchar eventos de SSE
   useEffect(() => {
-    let eventSource = new EventSource(`${VITE_APP}/api/chat/events`, {
+    let eventSource = new EventSource(`${VITE_APP}/api/v1/chat/events`, {
       withCredentials: true 
     });
 
     eventSource.onmessage = (e) => {
       const event = JSON.parse(e.data);
-      if (event.type === 'ping') return; // Ignorar el pulso de vida
+      if (!event.filename) return;
 
       setPendingFilePreview(prev => prev.map(f => {
         // IMPORTANTE: Asegúrate de que event.filename coincida exactamente con f.name
         if (f.name === event.filename) {
           if (event.type === "upload_started") return { ...f, loading: true, progress: 60 };
-          if (event.type === "upload_completed") return { ...f, loading: false, progress: 100 };
+          if (event.type === "upload_completed") return { ...f, loading: false, progress: 100, error: false, url: event.url };
           if (event.type === "upload_error") return { ...f, loading: false, progress: 0, error: true };
         }
         return f;
@@ -66,6 +66,7 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
       // Reintentar conexión tras 3 segundos si falla
       setTimeout(() => {
         // Aquí podrías disparar un estado para forzar la reconexión
+        setRetryCount(prev => prev + 1);
       }, 3000);
     };
 
@@ -144,7 +145,7 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
 
       try {
 
-        const data = await extractFileContent(file)
+        const data = await extractFileContent(file, client, getToken, appId);
 
         if (data.text) {
           onContextExtracted({ name: file.name, text: data.text });
@@ -152,7 +153,7 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
 
         setPendingFilePreview(prev =>
           prev.map(f =>
-            f.name === file.name ? { ...f, progress: 50} : f
+            f.name === file.name ? { ...f, progress: 50, loading: true} : f
           )
         );
       } catch (err) {
@@ -200,7 +201,7 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
         setPendingFilePreview(prev => [...prev, fileState]);
 
         try {
-          const data = await extractFileContent(file);
+          const data = await extractFileContent(file, client, getToken, appId);
           if (data.text) {
             onContextExtracted({ name: file.name, text: data.text });
           }
@@ -211,14 +212,14 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
             )
           );
         } catch (err) {
-          apiLogger.error(`ImageUpload: Error al subir imagen ${file.name}`, err.message);
+          apiLogger.error(`[SEARCHBAR] - ImageUpload: Error al subir imagen ${file.name}`, err.message);
           alert('Error al subir imagen: ' + err.message);
         }
       };
 
       reader.readAsDataURL(file);
     }
-  }, [onContextExtracted]);
+  }, [onContextExtracted, client, getToken, appId]);
 
   useEffect(() => {
     // Por si quedó algo colgado
@@ -309,6 +310,8 @@ const SearchBar = ({ onSearch, showIcon, isStreaming, onStop, onScrollToBottom, 
                 <svg className={`circular-progress ${file.error ? 'error' : ''}`} viewBox="0 0 36 36">
                   <path
                     className="circle-bg"
+                    strokeDasharray={`${file.progress}, 100`} // Esto controla el avance
+                    style={{ transition: 'stroke-dasharray 0.5s ease' }}
                     d="M18 2.0845
                       a 15.9155 15.9155 0 0 1 0 31.831
                       a 15.9155 15.9155 0 0 1 0 -31.831"

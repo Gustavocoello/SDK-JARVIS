@@ -29,6 +29,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
   // Mueve TODOS los hooks aquí. Ahora se ejecutarán siempre en orden.
   const { 
     client,
+    appId,
     getToken,
     isInitializing
   } = useJarvis();
@@ -55,7 +56,7 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
     isJarvisTyping, 
     isStreaming, 
     stopGeneration 
-  } = useChatActions(activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken);
+  } = useChatActions(activeChatId, isAuthenticated, { appendMessageToCache, updateMessageInCache, md }, client, getToken, appId);
 
   const {
     notification,
@@ -147,7 +148,10 @@ const ChatContent = ({ guest, isAuthenticated, onUnauthorized }) => {
         {isJarvisTyping && <div className="typing-indicator">Jarvis está escribiendo...</div>}
       </div>
 
-      <SearchBar 
+      <SearchBar
+        client={client}
+        getToken={getToken}
+        appId={appId}
         onSearch={async (query, context, img, tool) => {
            let currentChatId = activeChatId;
 
