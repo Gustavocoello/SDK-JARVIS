@@ -27,7 +27,7 @@ from src.services.agent.lamar.agent import get_lamar
 
 class LocalJarvisClient(JarvisClientBase):
     def __init__(self):
-        self.active_jarvis = get_jarvis
+        self.active_agent = "jarvis"
         
         # Diccionario (Factory) con los inicializadores de cada agente
         self._agents = {

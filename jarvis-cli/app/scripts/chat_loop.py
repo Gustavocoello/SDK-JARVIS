@@ -21,14 +21,10 @@ BACKEND_ROOT = Path(r"C:\work\mcp-nexus\mcp-scratch\backend")
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from src.services.agent.common.utils.history_fetcher import get_recent_sessions
 from src.services.agent.jarvis.agent import _jarvis_cache
-from src.services.agent.Koda.security.hitl import (
-    get_pending_hitl_requests, 
-    resolve_hitl_log, 
-    resume_session,
-    fail_session
-)
+from src.services.agent.common.utils.history_fetcher import get_recent_sessions
+from src.services.agent.common.utils.session_manager import resume_session, fail_session
+from src.services.agent.Koda.security.hitl import (get_pending_hitl_requests, resolve_hitl_log)
 
 console = Console()
 
@@ -212,6 +208,7 @@ async def chat_loop():
                     # ¡CLAVE! Actualizamos AMBOS IDs para reanudar la memoria correctamente
                     chat_id = selected_id
                     current_session_id = selected_id
+                    thread_id = selected_id
                     console.print(f"[#D2A541]Sesión reanudada:[/#D2A541] [#D1D1D6]{chat_id}[/#D1D1D6]")
                 continue
         elif command in ["/reboot", "/reload", "/restart"]:
@@ -255,6 +252,17 @@ async def chat_loop():
                     "file_operations": "Files",
                 }
                 rule_labels = [labels.get(r, r) for r in rules]
+                rule_labels = []
+                for r in rules:
+                    # Excepciones que queremos que se vean de cierta manera específica
+                    if r == "anti_hallucination":
+                        rule_labels.append("Anti-Hallucination")
+                    elif r == "file_operations":
+                        rule_labels.append("File Ops")
+                    else:
+                        # Para las demás (ej: "global_base" -> "Global Base")
+                        clean_name = str(r).replace("_", " ").replace("-", " ").title()
+                        rule_labels.append(clean_name)
                 parts.append(f"Rules: {', '.join(rule_labels)}")
             
             # Mostramos Skills y MCP si el backend nos indicó que se invocaron

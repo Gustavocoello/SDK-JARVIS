@@ -1,9 +1,17 @@
+# instalables
 node_modules/
 .env
 build/
 .DS_Store
 *.log
 
+# Archivos compilados de Python                                                                                                                               
+ __pycache__/                                                                                                                                                  
+ *.pyc                                                                                                                                                         
+ *.pyo                                                                                                                                                         
+ *.pyd 
+
+# Archivos temp 
 examples/
 .jarvis/
 jarvis_cli.egg-info

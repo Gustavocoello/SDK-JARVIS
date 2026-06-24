@@ -26,7 +26,7 @@ silenciar_logs_para_cli()
 
 def force_exit_handler(sig, frame):
     """Intercepta Ctrl+C a nivel de SO y mata el proceso al instante."""
-    print("\n\033[91m[!] Cierre forzado de emergencia (Ctrl+C). Matando proceso...\033[0m")
+    print("\nHasta la próxima ...")
     os._exit(0)
 
 # Registramos el botón de pánico
